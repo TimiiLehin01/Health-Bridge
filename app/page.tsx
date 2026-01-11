@@ -1,65 +1,233 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from "react";
+import { User, UserData, AssessmentData, AppointmentDetails } from "@/types";
+import { logoutUser } from "@/lib/authService";
+import { saveAssessment } from "@/lib/assessmentService";
+import AuthenticationScreen from "@/components/Auth/AuthenticationScreen";
+import ProgressBar from "@/components/Layout/ProgressBar";
+import WelcomeScreen from "@/components/Steps/WelcomeScreen";
+import TermsScreen from "@/components/Steps/TermsScreen";
+import PersonalInfoScreen from "@/components/Steps/PersonalInfoScreen";
+import SectionAScreen from "@/components/Steps/SectionAScreen";
+import SectionBScreen from "@/components/Steps/SectionBScreen";
+import SectionCScreen from "@/components/Steps/SectionCScreen";
+import SummaryScreen from "@/components/Steps/SummaryScreen";
+import TherapistBookingScreen from "@/components/Steps/TherapistBookingScreen";
+import CompleteScreen from "@/components/Steps/CompleteScreen";
+
+export default function HealthBridgeApp() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const [userData, setUserData] = useState<UserData>({
+    age: "",
+    sex: "",
+    state: "",
+    town: "",
+    address: "",
+    religion: "",
+    ethnicGroup: "",
+    employment: "",
+  });
+
+  const [assessmentData, setAssessmentData] = useState<AssessmentData>({
+    initialMood: "",
+    sectionA: Array(8).fill(""),
+    sectionB: Array(7).fill(""),
+    sectionC: Array(6).fill(""),
+    openEnded: "",
+  });
+
+  const [wantsTherapist, setWantsTherapist] = useState<boolean | null>(null);
+  const [paymentAccepted, setPaymentAccepted] = useState(false);
+  const [appointmentDetails, setAppointmentDetails] =
+    useState<AppointmentDetails | null>(null);
+
+  const handleLogin = (email: string, name: string, uid: string) => {
+    const user: User = {
+      uid,
+      email,
+      name,
+    };
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleSignup = (email: string, name: string, uid: string) => {
+    const user: User = {
+      uid,
+      email,
+      name,
+    };
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setCurrentStep(0);
+      setUserData({
+        age: "",
+        sex: "",
+        state: "",
+        town: "",
+        address: "",
+        religion: "",
+        ethnicGroup: "",
+        employment: "",
+      });
+      setAssessmentData({
+        initialMood: "",
+        sectionA: Array(8).fill(""),
+        sectionB: Array(7).fill(""),
+        sectionC: Array(6).fill(""),
+        openEnded: "",
+      });
+      setWantsTherapist(null);
+      setPaymentAccepted(false);
+      setAppointmentDetails(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
+  const handleCompleteAssessment = async () => {
+    if (!currentUser) return;
+
+    try {
+      await saveAssessment(
+        currentUser.uid,
+        currentUser.email,
+        currentUser.name,
+        userData,
+        assessmentData,
+        wantsTherapist,
+        appointmentDetails
+      );
+      console.log("Assessment saved successfully");
+    } catch (error) {
+      console.error("Error saving assessment:", error);
+    }
+  };
+
+  if (!isAuthenticated || !currentUser) {
+    return (
+      <AuthenticationScreen onLogin={handleLogin} onSignup={handleSignup} />
+    );
+  }
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <WelcomeScreen
+            userName={currentUser.name}
+            onNext={() => setCurrentStep(1)}
+          />
+        );
+      case 1:
+        return (
+          <TermsScreen
+            onNext={() => setCurrentStep(2)}
+            onBack={() => setCurrentStep(0)}
+          />
+        );
+      case 2:
+        return (
+          <PersonalInfoScreen
+            userData={userData}
+            setUserData={setUserData}
+            userName={currentUser.name}
+            onNext={() => setCurrentStep(3)}
+            onBack={() => setCurrentStep(1)}
+          />
+        );
+      case 3:
+        return (
+          <SectionAScreen
+            userName={currentUser.name}
+            assessmentData={assessmentData}
+            setAssessmentData={setAssessmentData}
+            onNext={() => setCurrentStep(4)}
+            onBack={() => setCurrentStep(2)}
+          />
+        );
+      case 4:
+        return (
+          <SectionBScreen
+            assessmentData={assessmentData}
+            setAssessmentData={setAssessmentData}
+            onNext={() => setCurrentStep(5)}
+            onBack={() => setCurrentStep(3)}
+          />
+        );
+      case 5:
+        return (
+          <SectionCScreen
+            assessmentData={assessmentData}
+            setAssessmentData={setAssessmentData}
+            onNext={() => setCurrentStep(6)}
+            onBack={() => setCurrentStep(4)}
+          />
+        );
+      case 6:
+        return (
+          <SummaryScreen
+            userName={currentUser.name}
+            onYes={() => {
+              setWantsTherapist(true);
+              setCurrentStep(7);
+            }}
+            onNo={() => {
+              setWantsTherapist(false);
+              setCurrentStep(7);
+            }}
+          />
+        );
+      case 7:
+        return (
+          <TherapistBookingScreen
+            userName={currentUser.name}
+            userEmail={currentUser.email}
+            wantsTherapist={wantsTherapist}
+            paymentAccepted={paymentAccepted}
+            setPaymentAccepted={setPaymentAccepted}
+            setAppointmentDetails={setAppointmentDetails}
+            onNext={() => {
+              handleCompleteAssessment();
+              setCurrentStep(8);
+            }}
+          />
+        );
+      case 8:
+        return (
+          <CompleteScreen
+            userName={currentUser.name}
+            wantsTherapist={wantsTherapist}
+            appointmentDetails={appointmentDetails}
+            onLogout={handleLogout}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50">
+      {currentStep > 0 && currentStep < 8 && (
+        <ProgressBar
+          currentStep={currentStep}
+          totalSteps={8}
+          userName={currentUser.name}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+      <div className="py-8">{renderStep()}</div>
     </div>
   );
 }
